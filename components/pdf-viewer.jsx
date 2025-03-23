@@ -4,10 +4,11 @@ import { useEffect, useState } from "react"
 
 export default function PDFViewerSimple({ pdfUrl, currentPage, setCurrentPage, setTotalPages }) {
   const [loading, setLoading] = useState(true)
+  const [iframeKey, setIframeKey] = useState(0)
 
   useEffect(() => {
-    // Giả định rằng PDF có 10 trang (không thể xác định chính xác số trang với iframe)
-    setTotalPages(10)
+    // Đặt tổng số trang là 7 dựa trên file PDF đã biết
+    setTotalPages(7)
     setLoading(false)
 
     // Thêm sự kiện lắng nghe thông báo từ iframe
@@ -21,6 +22,19 @@ export default function PDFViewerSimple({ pdfUrl, currentPage, setCurrentPage, s
     return () => window.removeEventListener("message", handleMessage)
   }, [setTotalPages])
 
+  // Force reload iframe khi pdfUrl thay đổi
+  useEffect(() => {
+    setIframeKey((prev) => prev + 1)
+    setLoading(true)
+
+    // Thêm một chút delay để đảm bảo iframe được reload
+    const timer = setTimeout(() => {
+      setLoading(false)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [pdfUrl])
+
   return (
     <div className="flex justify-center">
       {loading && (
@@ -30,11 +44,13 @@ export default function PDFViewerSimple({ pdfUrl, currentPage, setCurrentPage, s
       )}
 
       <iframe
+        key={iframeKey}
         src={`${pdfUrl}#page=${currentPage}`}
         width="100%"
         height="800px"
-        style={{ border: "none" }}
+        style={{ border: "none", display: loading ? "none" : "block" }}
         title="PDF Viewer"
+        onLoad={() => setLoading(false)}
       />
     </div>
   )

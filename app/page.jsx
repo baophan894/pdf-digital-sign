@@ -12,17 +12,17 @@ export default function Home() {
   const [pdfFile, setPdfFile] = useState(null)
   const [pdfUrl, setPdfUrl] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const [currentPage, setCurrentPage] = useState(7) // Mặc định hiển thị trang 7
+  const [totalPages, setTotalPages] = useState(7)
   const [signatures, setSignatures] = useState({})
   const [currentSigningArea, setCurrentSigningArea] = useState(null)
   const [signedPdfUrl, setSignedPdfUrl] = useState(null)
   const pdfContainerRef = useRef(null)
 
-  // Vị trí cố định cho chữ ký
+  // Vị trí cố định cho chữ ký trên trang 7
   const signaturePositions = {
-    benA: { x: 250, y: 400, page: 6 }, // Vị trí cho Đại diện bên A
-    benB: { x: 720, y: 400, page: 6 }, // Vị trí cho Đại diện bên B
+    benA: { x: 180, y: 243, page: 7 }, // Vị trí cho Đại diện bên A (Phan Quốc Thái Bảo)
+    benB: { x: 440, y: 243, page: 7 }, // Vị trí cho Đại diện bên B (Nguyễn Nhật Anh)
   }
 
   const handleFileChange = (file) => {
@@ -31,7 +31,7 @@ export default function Home() {
     setPdfUrl(url)
     setSignedPdfUrl(null)
     setSignatures({})
-    setCurrentPage(6) // Mặc định hiển thị trang 6 (trang có chữ ký)
+    setCurrentPage(7) // Luôn hiển thị trang 7 khi tải PDF
   }
 
   const handleSignatureClick = (id) => {
@@ -46,75 +46,79 @@ export default function Home() {
     setCurrentSigningArea(null)
   }
 
-  const handleSignatureComplete = (signatureDataUrl) => {
+  const handleSignatureComplete = async (signatureDataUrl) => {
     if (currentSigningArea) {
-      setSignatures({
+      const newSignatures = {
         ...signatures,
         [currentSigningArea]: signatureDataUrl,
-      })
+      }
+
+      setSignatures(newSignatures)
+
+      // Tự động tạo PDF đã ký sau khi thêm chữ ký
+      try {
+        const { PDFDocument } = await import("pdf-lib")
+
+        // Tải PDF gốc
+        const existingPdfBytes = await fetch(pdfUrl).then((res) => res.arrayBuffer())
+
+        // Tạo một bản sao của PDF
+        const pdfDoc = await PDFDocument.load(existingPdfBytes)
+
+        // Nhúng tất cả chữ ký vào PDF
+        for (const [id, sigUrl] of Object.entries(newSignatures)) {
+          const position = signaturePositions[id]
+          if (!position) continue
+
+          // Lấy trang cần ký
+          const pages = pdfDoc.getPages()
+          const pageIndex = position.page - 1
+          if (pageIndex < 0 || pageIndex >= pages.length) continue
+
+          const page = pages[pageIndex]
+
+          // Chuyển đổi data URL thành Uint8Array
+          const signatureImageBytes = await fetch(sigUrl).then((res) => res.arrayBuffer())
+          const signatureImage = await pdfDoc.embedPng(signatureImageBytes)
+
+          // Tính toán kích thước chữ ký
+          const width = 150
+          const height = 60
+
+          // Vẽ chữ ký lên trang
+          page.drawImage(signatureImage, {
+            x: position.x - width / 2,
+            y: page.getHeight() - position.y - height / 2, // PDF coordinates start from bottom-left
+            width,
+            height,
+          })
+        }
+
+        // Lưu PDF đã ký
+        const signedPdfBytes = await pdfDoc.save()
+
+        // Tạo URL cho PDF đã ký
+        const blob = new Blob([signedPdfBytes], { type: "application/pdf" })
+        const signedUrl = URL.createObjectURL(blob)
+
+        // Cập nhật URL của PDF đã ký
+        setSignedPdfUrl(signedUrl)
+      } catch (error) {
+        console.error("Lỗi khi tạo PDF đã ký:", error)
+      }
     }
   }
 
-  const handleDownload = async () => {
-    try {
-      const { PDFDocument } = await import("pdf-lib")
+  const handleDownload = () => {
+    if (!signedPdfUrl) return
 
-      // Tải PDF gốc
-      const existingPdfBytes = await fetch(pdfUrl).then((res) => res.arrayBuffer())
-
-      // Tạo một bản sao của PDF
-      const pdfDoc = await PDFDocument.load(existingPdfBytes)
-
-      // Nhúng chữ ký vào PDF
-      for (const [id, signatureUrl] of Object.entries(signatures)) {
-        const position = signaturePositions[id]
-        if (!position) continue
-
-        // Lấy trang cần ký
-        const pages = pdfDoc.getPages()
-        const pageIndex = position.page - 1
-        if (pageIndex < 0 || pageIndex >= pages.length) continue
-
-        const page = pages[pageIndex]
-
-        // Chuyển đổi data URL thành Uint8Array
-        const signatureImageBytes = await fetch(signatureUrl).then((res) => res.arrayBuffer())
-        const signatureImage = await pdfDoc.embedPng(signatureImageBytes)
-
-        // Tính toán kích thước chữ ký
-        const width = 150
-        const height = 60
-
-        // Vẽ chữ ký lên trang
-        page.drawImage(signatureImage, {
-          x: position.x - width / 2,
-          y: page.getHeight() - position.y - height / 2, // PDF coordinates start from bottom-left
-          width,
-          height,
-        })
-      }
-
-      // Lưu PDF đã ký
-      const signedPdfBytes = await pdfDoc.save()
-
-      // Tạo URL cho PDF đã ký
-      const blob = new Blob([signedPdfBytes], { type: "application/pdf" })
-      const signedUrl = URL.createObjectURL(blob)
-
-      // Cập nhật URL của PDF đã ký
-      setSignedPdfUrl(signedUrl)
-
-      // Tạo link tải xuống
-      const link = document.createElement("a")
-      link.href = signedUrl
-      link.download = pdfFile ? `${pdfFile.name.replace(".pdf", "")}-da-ky.pdf` : "tai-lieu-da-ky.pdf"
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    } catch (error) {
-      console.error("Lỗi khi tạo PDF đã ký:", error)
-      alert("Có lỗi xảy ra khi tạo PDF đã ký: " + error.message)
-    }
+    // Tạo link tải xuống
+    const link = document.createElement("a")
+    link.href = signedPdfUrl
+    link.download = pdfFile ? `${pdfFile.name.replace(".pdf", "")}-da-ky.pdf` : "hop-dong-bao-hiem-da-ky.pdf"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   return (
@@ -122,7 +126,7 @@ export default function Home() {
       <Card className="w-full max-w-5xl mx-auto">
         <CardHeader>
           <CardTitle className="text-2xl">Công cụ ký điện tử PDF</CardTitle>
-          <CardDescription>Tải lên file PDF và ký vào vị trí đại diện bên A và đại diện bên B</CardDescription>
+          <CardDescription>Ký vào vị trí đại diện bên A và đại diện bên B trên hợp đồng bảo hiểm</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -134,19 +138,19 @@ export default function Home() {
                   <div className="flex flex-wrap gap-2">
                     <Button
                       onClick={() => handleSignatureClick("benA")}
-                      variant="outline"
+                      variant={signatures.benA ? "default" : "outline"}
                       className="flex items-center gap-2"
                     >
                       <PenLine className="h-4 w-4" />
-                      Ký vào vị trí Đại diện bên A
+                      {signatures.benA ? "Đã ký" : "Ký vào vị trí"} Đại diện bên A
                     </Button>
                     <Button
                       onClick={() => handleSignatureClick("benB")}
-                      variant="outline"
+                      variant={signatures.benB ? "default" : "outline"}
                       className="flex items-center gap-2"
                     >
                       <PenLine className="h-4 w-4" />
-                      Ký vào vị trí Đại diện bên B
+                      {signatures.benB ? "Đã ký" : "Ký vào vị trí"} Đại diện bên B
                     </Button>
                     {Object.keys(signatures).length > 0 && (
                       <Button onClick={handleDownload} className="flex items-center gap-2">
@@ -178,65 +182,7 @@ export default function Home() {
                     setTotalPages={setTotalPages}
                   />
 
-                  {/* Hiển thị vùng ký cho bên A */}
-                  {currentPage === signaturePositions.benA.page && (
-                    <div
-                      className={`absolute border-2 ${signatures.benA ? "border-transparent" : "border-dashed border-primary"} rounded-md flex items-center justify-center`}
-                      style={{
-                        left: signaturePositions.benA.x - 75,
-                        top: signaturePositions.benA.y - 30,
-                        width: "150px",
-                        height: "60px",
-                        zIndex: 10,
-                      }}
-                    >
-                      {signatures.benA ? (
-                        <img
-                          src={signatures.benA || "/placeholder.svg"}
-                          alt="Chữ ký Bên A"
-                          style={{ maxWidth: "150px", maxHeight: "60px" }}
-                        />
-                      ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => handleSignatureClick("benA")}
-                          className="bg-white text-primary hover:bg-primary hover:text-white"
-                        >
-                          Ký tại đây
-                        </Button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Hiển thị vùng ký cho bên B */}
-                  {currentPage === signaturePositions.benB.page && (
-                    <div
-                      className={`absolute border-2 ${signatures.benB ? "border-transparent" : "border-dashed border-primary"} rounded-md flex items-center justify-center`}
-                      style={{
-                        left: signaturePositions.benB.x - 75,
-                        top: signaturePositions.benB.y - 30,
-                        width: "150px",
-                        height: "60px",
-                        zIndex: 10,
-                      }}
-                    >
-                      {signatures.benB ? (
-                        <img
-                          src={signatures.benB || "/placeholder.svg"}
-                          alt="Chữ ký Bên B"
-                          style={{ maxWidth: "150px", maxHeight: "60px" }}
-                        />
-                      ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => handleSignatureClick("benB")}
-                          className="bg-white text-primary hover:bg-primary hover:text-white"
-                        >
-                          Ký tại đây
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                 
                 </div>
 
                 <div className="flex justify-center space-x-2">
