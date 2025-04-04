@@ -57,10 +57,10 @@ export default function ContractPage() {
             const data = await response.json()
             console.log("Document data:", data)
             setDocumentData(data)
-
+            console.log("Document fileUrl:", data.data.fileUrl)
             // Sử dụng fileUrl từ API response
-            if (data.fileUrl) {
-              setPdfUrl(data.fileUrl)
+            if (data.data.fileUrl) {
+              setPdfUrl(data.data.fileUrl)
             } else {
               throw new Error("Không tìm thấy URL tài liệu")
             }

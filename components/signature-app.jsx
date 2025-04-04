@@ -197,7 +197,7 @@ export default function SignatureApp({ pdfUrl, userData, documentData, allowedSi
       const responseData = await uploadResponse.json();
       console.log("Phản hồi từ API:", responseData);
 
-      const contractUrl = responseData?.data;
+      const contractUrl = responseData?.data.data;
       console.log("URL file đã tải lên:", contractUrl);
 
       // 🟢 2. Cập nhật contract URL trên server
@@ -217,21 +217,21 @@ export default function SignatureApp({ pdfUrl, userData, documentData, allowedSi
       const currentUrl = window.location.pathname
         const token = currentUrl.substring(1)
       const decoded = jwtDecode(token)
-      // const response = await fetch(`/api/contact-collaborators/${decoded.user_id}`) 
-      // if (!response.ok) {
-      //    throw new Error("Không thể lấy thông tin tài liệu") }
-      // const data = await response.json()
+      const response = await fetch(`/api/contact-collaborators/${decoded.user_id}`) 
+      if (!response.ok) {
+         throw new Error("Không thể lấy thông tin tài liệu") }
+      const data = await response.json()
+      console.log('data:',data)
+      const updateStatusResponse = await fetch(
+        `api/contact-collaborators/${data.data.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "signed" }),
+        }
+      );
 
-      // const updateStatusResponse = await fetch(
-      //   `api/contact-collaborators/${data.id}`,
-      //   {
-      //     method: "PATCH",
-      //     headers: { "Content-Type": "application/json" },
-      //     body: JSON.stringify({ status: "signed" }),
-      //   }
-      // );
-
-    //  if (!updateStatusResponse.ok) throw new Error("Không thể cập nhật trạng thái hợp đồng");
+     if (!updateStatusResponse.ok) throw new Error("Không thể cập nhật trạng thái hợp đồng");
 
       console.log("Hợp đồng đã ký thành công!");
     } catch (error) {
