@@ -14,7 +14,7 @@ import { CheckCircle } from "lucide-react"
 export default function ConfirmationModal({ isOpen, onClose, onConfirm }) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-w-[95vw]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-green-500" />
@@ -31,11 +31,11 @@ export default function ConfirmationModal({ isOpen, onClose, onConfirm }) {
           </p>
           <p className="text-sm text-muted-foreground">Bạn có thể tải xuống bản hợp đồng đã ký sau khi xác nhận.</p>
         </div>
-        <DialogFooter className="flex justify-between sm:justify-between">
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="flex flex-col-reverse sm:flex-row justify-between sm:justify-between gap-2">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
             Hủy bỏ
           </Button>
-          <Button onClick={onConfirm} className="bg-green-600 hover:bg-green-700">
+          <Button onClick={onConfirm} className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
             Xác nhận chữ ký
           </Button>
         </DialogFooter>
@@ -43,4 +43,3 @@ export default function ConfirmationModal({ isOpen, onClose, onConfirm }) {
     </Dialog>
   )
 }
-
